@@ -1,5 +1,5 @@
 import {Console} from 'console'
-import {Doc, ROOT_ID} from './src/index'
+import {Doc, ROOT_ID} from '../src/index'
 
 let console = new Console({
   stdout: process.stdout,
