@@ -36,6 +36,7 @@ export class Doc<Item = string> {
   // frontier: Set<number> = new Set()
   frontier: number[] = [-1]
 
+  /** Stored in reverse order */
   docRoot: DocTreeItem<Item>[] = []
 
 
@@ -237,10 +238,11 @@ export class Doc<Item = string> {
         // Find the parent
         const container = op.predecessor.agent === 'ROOT' ? this.docRoot : this.findInsert(op.predecessor)!.treeItem!.children
 
-        // Ok this is the tricky bit. We need to insert at the right location.
-        let i = 0
+        // Ok this is the tricky bit. We need to insert at the right
+        // location. We'll almost always insert at the end here.
+        let i = container.length - 1
         // console.log('container', container)
-        for (; i < container.length; i++) {
+        for (; i >= 0; i--) {
           // Break if op goes before container[i].
           // So, break if op dominates container[i].
           const item = container[i]
@@ -269,7 +271,9 @@ export class Doc<Item = string> {
           children: [],
           deleted: false,
         }
-        container.splice(i, 0, item)
+
+        if (i === container.length - 1) container.push(item)
+        else container.splice(i+1, 0, item)
         op.treeItem = item
       } else {
         // Just mark the item as deleted.
@@ -280,7 +284,9 @@ export class Doc<Item = string> {
   }
 
   *allIn(children: DocTreeItem<Item>[]): Generator<DocTreeItem<Item>> {
-    for (const c of children) {
+    // Reverse scan.
+    for (let i = children.length - 1; i >= 0; i--) {
+      const c = children[i]
       if (!c.deleted) yield c
       yield* this.allIn(c.children)
     }

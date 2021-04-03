@@ -30,5 +30,6 @@ export type DocTreeItem<Item> = {
   content: Item
   id: Id // id of op, not id of txn.
   deleted: boolean
+  /** Stored in reverse order */
   children: DocTreeItem<Item>[]
 }
