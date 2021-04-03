@@ -7,7 +7,7 @@ export const ROOT_ID = Object.freeze({agent: 'ROOT', seq: 0})
 
 export type InsertOp<Item> = {
   type: 'insert'
-  content: Item
+  content: Item[] | string
   predecessor: Id
 
   // Used when inserted into the doc tree.

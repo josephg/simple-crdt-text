@@ -2,6 +2,7 @@ import assert from 'assert'
 import bs from 'binary-search'
 import Map2 from 'map2'
 import {Id, Txn, Op, InsertOp, ROOT_ID, DocTreeItem} from './types'
+import {uniCount, uniToStrPos} from 'unicount'
 
 export {Id, ROOT_ID, InsertOp, Op, Txn} from './types'
 
@@ -233,10 +234,13 @@ export class Doc<Item = string> {
     let opSeq = id.seq
     for (const op of txn.ops) {
       if (op.type === 'insert') {
-        op.seq = opSeq++
-
         // Find the parent
         const container = op.predecessor.agent === 'ROOT' ? this.docRoot : this.findInsert(op.predecessor)!.treeItem!.children
+
+        let len = typeof op.content === 'string' ? uniCount(op.content) : op.content.length
+        assert(len >= 1)
+        op.seq = opSeq
+        opSeq += len
 
         // Ok this is the tricky bit. We need to insert at the right
         // location. We'll almost always insert at the end here.
@@ -265,11 +269,35 @@ export class Doc<Item = string> {
           else if (id.agent < otherTxn.id.agent) break
         }
 
+
+        let content = op.content
         const item: DocTreeItem<Item> = {
           id: {agent: id.agent, seq: op.seq},
-          content: op.content,
+          // Just the first item!
+          content: (typeof content === 'string'
+            ? content.slice(0, uniToStrPos(content, 1))
+            : content[0]) as Item,
           children: [],
           deleted: false,
+        }
+
+        let cur_item = item
+        for (let i = 1; i < len; i++) {
+          // We need to append all the items in a linked list down. It
+          // would be much more efficient to have each item store a list
+          // here instead.
+          content = content.slice(typeof op.content === 'string' ? uniToStrPos(op.content, 1) : 1)
+
+          let next_item: DocTreeItem<Item> = {
+            id: {agent: id.agent, seq: op.seq + i},
+            content: (typeof content === 'string'
+              ? content.slice(0, uniToStrPos(content, 1))
+              : content[0]) as Item,
+            children: [],
+            deleted: false,
+          }
+          cur_item.children.push(next_item)
+          cur_item = next_item
         }
 
         if (i === container.length - 1) container.push(item)
@@ -329,7 +357,7 @@ export class Doc<Item = string> {
     throw Error('Pos past the end of the document')
   }
 
-  makeInsertOp(pos: number, item: Item): InsertOp<Item> {
+  makeInsertOp(pos: number, item: Item[] | string): InsertOp<Item> {
     return {
       type: 'insert',
       content: item,
