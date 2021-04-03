@@ -1,22 +1,35 @@
+# Simple reference CRDT
+
 This is a simple CRDT implementation for the CRDT I want to efficiently
 implement in rust. This implementation is intentionally *not* optimized.
 The goal is to have some simple code that I can use to clarify semantics
-and as a basis for fuzz testing the faster implementation.
+and as a basis for fuzz testing correctness of a faster implementation.
 
-This is based on automerge, but with some small changes:
+This implements automerge's underlying algorithm (RGA), but with some
+small changes:
 
 - The actor's sequence numbers are monotonically increasing, not
   linearly increasing. This allows transactions to modify multiple
   documents
-- There aren'
+- Sequence numbers are reused between a transaction and the operations
+  it contains.
 
 For now this is just a CRDT implementation of a list / string (list of
 unicode codepoints). At some point I might add more data types here, but
 a list is always the baseline for this stuff.
 
-### Terminology
+### Limitations
 
-An operation is the smallest unit of change. For now operations are either
+- This is just a list based CRDT. It does not implement any of the
+  fancier types present in automerge / yjs (objects, sets, etc)
+- Each operation may only insert or delete a single item. There is no
+  run-length encoding in the internal structures, so memory and CPU
+  usage is off the charts.
+
+
+### Transactions and Operations
+
+An *operation* is the smallest unit of change. For now operations are either
 
 - Insert a single item, or
 - Delete a single item
