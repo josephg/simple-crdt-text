@@ -1,39 +1,9 @@
 import assert from 'assert'
 import bs from 'binary-search'
 import Map2 from 'map2'
-import {Console} from 'console'
+import {Id, Txn, Op, InsertOp, ROOT_ID, DocTreeItem} from './types'
 
-let console = new Console({
-  stdout: process.stdout,
-  stderr: process.stderr,
-  inspectOptions: {depth: 4}
-})
-
-// type Id = [agent: string, seq: number]
-type Id = {agent: string, seq: number}
-
-// The root has this ID and an order of -1.
-const ROOT_ID = Object.freeze({agent: 'ROOT', seq: 0})
-
-type InsertOp<Item> = {
-  type: 'insert'
-  content: Item
-  predecessor: Id
-
-  // Used when inserted into the doc tree.
-  seq?: number, // Calculated from the txn's id
-  treeItem?: DocTreeItem<Item>
-}
-type Op<Item> = InsertOp<Item> | {
-  type: 'delete'
-  item: Id
-}
-
-type Txn<Item> = {
-  id: Id
-  parents: Id[] // Will always also include parents by this agent
-  ops: Op<Item>[]
-}
+export {Id, ROOT_ID, InsertOp, Op, Txn} from './types'
 
 type LocalTxn<Item> = Txn<Item> & {
   order: number
@@ -48,15 +18,7 @@ type LocalTxn<Item> = Txn<Item> & {
 }
 
 
-type DocTreeItem<Item> = {
-  content: Item
-  id: Id // id of op, not id of txn.
-  deleted: boolean
-  children: DocTreeItem<Item>[]
-}
-
-
-class Doc<Item = string> {
+export class Doc<Item = string> {
   agentTxns: {
     // Stored in seq order.
     [agent: string]: LocalTxn<Item>[]
@@ -311,7 +273,7 @@ class Doc<Item = string> {
         op.treeItem = item
       } else {
         // Just mark the item as deleted.
-        const ins = this.findInsert(op.item)
+        const ins = this.findInsert(op.target)
         ins.treeItem!.deleted = true
       }
     }
@@ -372,7 +334,7 @@ class Doc<Item = string> {
   makeDeleteOp(pos: number): Op<Item> {
     return {
       type: 'delete',
-      item: this.findIdBeforePos(pos + 1)
+      target: this.findIdBeforePos(pos + 1)
     }
   }
 
@@ -380,81 +342,3 @@ class Doc<Item = string> {
 
   // }
 }
-
-const doc = new Doc()
-
-doc.apply({
-  id: {agent: 'xxx', seq: 1},
-  parents: [ROOT_ID],
-  ops: [{
-    type: 'insert',
-    content: 'x',
-    predecessor: ROOT_ID,
-  // }, {
-  //   type: 'insert',
-  //   content: 'y',
-  //   parent: ROOT_ID,
-  // }, {
-  //   type: 'insert',
-  //   content: 'z',
-  //   parent: {agent: 'xxx', seq: 2},
-  }]
-})
-
-console.log('ip', doc.findIdBeforePos(1))
-
-// Insert two concurrent edits
-doc.apply({
-  id: {agent: 'aaa', seq: 1},
-  parents: [{agent: 'xxx', seq: 1}],
-  ops: [{
-    type: 'insert',
-    content: 'A',
-    predecessor: {agent: 'xxx', seq: 1},
-  }]
-})
-doc.apply({
-  id: {agent: 'bbb', seq: 1},
-  parents: [{agent: 'xxx', seq: 1}],
-  ops: [{
-    type: 'insert',
-    content: 'B',
-    predecessor: {agent: 'xxx', seq: 1},
-  }]
-})
-
-// Insert something that preceeds both
-doc.apply({
-  id: {agent: 'ccc', seq: 1},
-  parents: [{agent: 'aaa', seq: 1}, {agent: 'bbb', seq: 1}],
-  ops: [{
-    type: 'insert',
-    content: 'C',
-    predecessor: {agent: 'xxx', seq: 1},
-  }]
-})
-
-// Delete the x
-doc.apply({
-  id: {agent: 'xxx', seq: 2},
-  parents: [{agent: 'xxx', seq: 1}],
-  ops: [{
-    type: 'delete',
-    item: {agent: 'xxx', seq: 1}
-  }]
-})
-
-const txn = doc.makeTxn('aaa', [doc.makeInsertOp(3, '_')])
-console.log(txn)
-doc.apply(txn)
-
-console.log(doc.readStr())
-
-const fuzzer = () => {
-  const doc = new Doc()
-
-  for (let iter = 0; iter < 10000; iter++) {
-
-  }
-}
-
